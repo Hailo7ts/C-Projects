@@ -1,0 +1,171 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <ctype.h>
+#include <math.h>
+
+//constants
+#define STUDENTS 4
+#define  GRADE_CATEGORIES 5
+#define CATEGORIES "1. Learning Activity 2. Homework 3. Project 4. Midterm 5. Final "
+const double GRADE_CATEGORY_WEIGHT[] = { 0.1, 0.3, 0.3, 0.15, .15 };
+
+//Function prototypes
+int validInput(int rows, int cols);
+void displayWeights(const double GRADE_WEIGHT[], size_t categories);
+void displayArray(const int grades[][GRADE_CATEGORIES], size_t pupils, size_t categories);
+void calculateFinalGrade(const int grade[][GRADE_CATEGORIES], const double CATEGORY_WEIGHT[], size_t pupils, size_t categories, double finals[STUDENTS]);
+void displayGrade(const double finals[], size_t pupils, size_t categories);
+double calculateClassAverage(double const finals[], size_t pupils);
+
+int main(void)
+{
+	//initialize variables
+	int validGrade = 0;
+	int studentGrades[STUDENTS][GRADE_CATEGORIES] = { {0} };
+	double finalGrades[STUDENTS] = {0,0,0,0};
+	double classAverage = 0; 
+
+	//header
+	printf("This program will calculate the grades for these categories %s\n", CATEGORIES);
+
+	//display category weights
+	displayWeights(GRADE_CATEGORY_WEIGHT, GRADE_CATEGORIES);
+
+	printf("\nThe correct order to enter grades for each student is: %s\n", CATEGORIES);
+	//call validInput on input and fill array 
+	for (size_t row =0; row < STUDENTS; row++) {
+		for (size_t col = 0; col < GRADE_CATEGORIES; col++) {
+			validGrade = validInput(row, col);
+			studentGrades[row][col] = validGrade;
+		}
+	}
+
+	//display array of students and categories
+	displayArray(studentGrades, STUDENTS, GRADE_CATEGORIES);
+
+	//calculate the student final grade	
+	calculateFinalGrade(studentGrades, GRADE_CATEGORY_WEIGHT, STUDENTS, GRADE_CATEGORIES, finalGrades);
+	
+	//display grade
+	displayGrade(finalGrades, STUDENTS, GRADE_CATEGORIES);
+
+	//get class average
+	classAverage = calculateClassAverage(finalGrades, STUDENTS);
+
+	printf("Class average is %.1lf", classAverage);
+}
+
+//check input
+int validInput(int rows, int cols) {
+	bool validInfo = false;
+	int validGrade = 0;
+	int scannedVar = 0;
+
+	while (validInfo != true) {
+
+		printf("Enter the grade for each category for student %d, category %d: ", rows+1, cols+1);
+		scannedVar = scanf("%d", &validGrade);
+
+		//check if scanf read something
+		while ((getchar()) != '\n');
+		//check for valid input
+		//if value is number
+		if (scannedVar == 1) {
+			//if value is in range
+			if ((validGrade >= 0) && (validGrade <= 105)) {
+				validInfo = true;
+			}
+			else {
+				validInfo = false;
+				puts("Grade must be between 0-105.");
+			}
+		}
+		else {
+			validInfo = false;
+			puts("Grade must be an integer between 0-105.");
+		}
+	}
+	return validGrade;
+
+}
+
+//display the category weights
+void displayWeights(const double GRADE_WEIGHT[], size_t categories) {
+	puts("\nThe category weights are");
+
+	for (size_t i = 0; i < categories; i++) {
+		printf("Category %llu weight is %.2lf\n", i+1, GRADE_WEIGHT[i]);
+	}
+}
+
+//display the 2D array of students and their grades
+void displayArray(const int grades[][GRADE_CATEGORIES], size_t pupils, size_t categories) {
+	puts("\nGrades entered for each student");
+	
+	// output grades in table
+	for (size_t i = 0; i < pupils; ++i) {
+
+		// output label for row
+		printf("\nStudent[%llu] ", i+1);
+
+		// output grades for one student
+		for (size_t j = 0; j < categories; ++j) {
+			printf("%-5d", grades[i][j]);
+		}
+	}
+	puts("\n");
+}
+
+//calculate final grades for students
+void calculateFinalGrade(const int grade[][GRADE_CATEGORIES], const double CATEGORY_WEIGHT[], size_t pupils, size_t categories, double finals[STUDENTS]) {
+	
+	double sum = 0;
+
+	for (size_t row = 0; row < pupils; row++) {
+		sum = 0;
+		for (size_t col = 0; col < categories; col++) {
+			//add up the weighted grades for each student
+			sum += (grade[row][col] * CATEGORY_WEIGHT[col]);
+		}
+		//place fianl grade in array
+		finals[row] = sum;
+	}
+
+	
+}
+
+//display final grade and letter grade
+void displayGrade(const double finals[], size_t pupils, size_t categories) {
+	for (size_t row = 0; row < pupils; row++) {
+		if (finals[row] >= 90) {
+			printf("Student %llu:  %.1lf   A\n", row+1, finals[row]);
+		}
+		else if (finals[row] >= 80) {
+			printf("Student %llu:  %.1lf   B\n", row + 1, finals[row]);
+		}
+		else if (finals[row] >= 70) {
+			printf("Student %llu:  %.1lf   C\n", row + 1, finals[row]);
+		}
+		else if (finals[row] >= 60) {
+			printf("Student %llu:  %.1lf   D\n", row + 1, finals[row]);
+		}
+		else {
+			printf("Student %llu:  %.1lf   F\n", row + 1, finals[row]);
+		}
+	}
+}
+
+//calculate class average
+double calculateClassAverage(double const finals[], size_t pupils) {
+	double average = 0;
+	double sum = 0;
+
+	for (size_t i = 0; i < pupils; i++) {
+		sum += finals[i];
+	}
+
+	average = sum / pupils;
+
+	return average;
+}

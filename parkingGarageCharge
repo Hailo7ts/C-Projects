@@ -1,0 +1,131 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <ctype.h>
+#include <math.h>
+
+//constants
+const double MIN_HOURS_AT_FLAT_RATE = 3.0;
+const double MIN_FLAT_RATE_CHARGE = 3.00;
+const double ADDITIONAL_HOURS_RATE = 0.75;
+const double MAX_HOURS_ALLOWED = 24.0;
+const double MAX_CHARGE = 12.00;
+
+double validateHours(double parkedHours); // function prototype
+double calculatePartingFee(int numCar, double parkedHours); // function prototype
+void displayParkingCharge(double parkedHours, double carCharge, int numCar); // function prototype
+void parkingSummary(int totalCars, double totalCharge, double totalHours); // function prototype
+
+int main(void)
+{
+	double hours = 0;
+	double totalCharges = 0;
+	double totalHours = 0;
+	int totalCars = 0;
+	double charge = 0;
+	unsigned int carNumber = 0;
+	bool parkingMode = true;
+	
+
+	//loop will run until sentinal value proves parkingMode false
+	while (parkingMode != false) {
+		
+		//call validateHours function to get valid data
+		hours = validateHours(hours);
+
+		if (hours == -1) {
+			parkingMode = false;
+		}
+		else {
+			//increments car number and calls calculatePartingFee and displayParkingCharge
+			carNumber++;
+			charge = calculatePartingFee(carNumber, hours);
+			displayParkingCharge(hours, charge, carNumber);
+
+			//sums for parking summarry
+			totalCharges += charge;
+			totalHours += hours;
+			totalCars = carNumber;
+
+			parkingMode = true;
+		}
+		
+	}
+
+	//finished sales and calls parkingSummary to print summary
+	parkingSummary(totalCars, totalCharges, totalHours);
+
+
+}
+
+double validateHours(double parkedHours) {
+	bool validInput = false;
+	
+	do {
+		puts("Enter the number of hours the car was parked or enter -1 to quit.");
+		double scannedVar = scanf("%lf", &parkedHours);
+
+		//check if scanf read something
+		while ((getchar()) != '\n');
+			//check for valid input
+			//if value is number
+			if (scannedVar == 1) {
+					//if value is in range
+					if (parkedHours == -1 || (parkedHours > 0 && parkedHours <= MAX_HOURS_ALLOWED)) {
+						validInput = true;
+					}
+					else {
+						validInput = false;
+						puts("hours must be greater than 0 and less than or equal to 24.");
+					}
+			}
+			else {
+				validInput = false;
+				puts("You did not enter a number");
+			}
+
+		
+	} while (validInput != true);
+	return parkedHours;
+}
+
+double calculatePartingFee(int numCar, double parkedHours) {
+	double parkingCharge = 0;
+
+	if (parkedHours > 0 && parkedHours <= MIN_HOURS_AT_FLAT_RATE) {
+		parkingCharge = MIN_FLAT_RATE_CHARGE;
+	}
+	else if (parkedHours < MAX_HOURS_ALLOWED && parkedHours > MIN_HOURS_AT_FLAT_RATE) {
+		parkedHours = ceil(parkedHours) - MIN_HOURS_AT_FLAT_RATE;
+		parkingCharge = MIN_FLAT_RATE_CHARGE + (parkedHours * ADDITIONAL_HOURS_RATE);
+		
+		//check if charge exceeds max charge
+		if (parkingCharge > MAX_CHARGE) {
+			parkingCharge = MAX_CHARGE;
+		}
+		else {
+			parkingCharge = parkingCharge;
+		}
+	}
+	else {
+		parkingCharge = MAX_CHARGE;
+	}
+
+	return parkingCharge;
+}
+
+void displayParkingCharge(double parkedHours, double carCharge, int numCar) {
+	puts("Car          Hours         Charge");
+	printf(" %d           %.1lf	     $%.2lf\n", numCar, parkedHours, carCharge);
+}
+
+void parkingSummary(int totalOfCars, double totalOfCharge, double totalOfHours) {
+	if (totalOfCars != 0) {
+		puts("Parking Garage Summary\n");
+		puts("Total Cars          Total Hours         Total Charge");
+		printf(" %d                   %.1lf	              $%.2lf\n", totalOfCars, totalOfHours, totalOfCharge);
+	}
+	else {
+		puts("Parking Garage Summary \nThere were no cars parked today.\n");
+	}
+}

@@ -1,0 +1,1053 @@
+/*
+* Hailey Martin
+* CS2060
+* Project Iteration 2
+* Description: This program will dynamically allocate memory on the heap to store various organizations
+* inside a single linked list. In this program there are three sections set up, donation, and summary.
+* Setup will prompt user to add organization which will create nodes in a linked list and each node
+* will hac data memebers for that specific organization. In donation the user can selec which organization
+* they want to donate to and then collect donation from user. At this point the user could enter q to
+* quit the donation mode instead of a dollar amount. If q is entered the user is sent to summary mode
+* where they will get summary for the organizations. This program will also write to file for receipts
+* and summary for organizations.
+*/
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <limits.h>
+#include <time.h>
+#include <float.h>
+
+#define STRING_LENGTH 80
+#define FOLDER "C:\\fundraiser\\" 
+
+// Defining a structure
+typedef struct  organization {
+	char organizationName[STRING_LENGTH];
+	char purpose[STRING_LENGTH];
+	char adminName[STRING_LENGTH];
+	char adminEmail[STRING_LENGTH];
+	char adminPassword[STRING_LENGTH];
+	char organizationURL[STRING_LENGTH];
+	double goalAmount;
+	double raisedAmount;
+	unsigned int totalDonors;
+	double creditProcessed;
+
+	// self referencial structure
+	struct organization* nextNodePtr;
+}Organization;
+
+//function prototypes
+void setUpOrganization(Organization* const organizationPtr);
+void displayOrganization(const Organization* const organizationPtr);
+void myFgets(char* const stringPtr, FILE* stream);
+bool validateEmail(char* stringPtr);
+void displayFundraiserInfo(const Organization* const organizationPtr);
+bool getValidZip(const char* const zipStringPtr, const int length);
+bool verifyEmail(const char* const emailStringPtr, FILE* stream);
+bool verifyPassword(const char* const passStringPtr, FILE* stream);
+void displaySummary(const Organization* const organizationPtr);
+void createUrl(char* url, const char* prefix, const char* suffix, const char* orgName);
+bool doubleInputValidate(const char* stringInputPtr, double* outputPtr, int min);
+char validateYesNo();
+bool validatePassword(char* stringPtr);
+void addOrganization(Organization** headPtr);
+void printList(Organization* listPtr);
+int stringCompare(char* str1Ptr, char* strPtr2);
+Organization* selectOrganization(Organization** headPtr, char* stringInputPtr);
+double creditCardPayment(const double DONATION);
+void receiptFile(const Organization* const organizationPtr, const char FOLDER_PATH[], const int LENGTH, const double DONATION);
+void orgToFile(Organization* listPtr, const char FOLDER_PATH[]);
+void deallocateMemory(Organization** headPtr);
+
+int main(void)
+{
+	//initialized variables
+
+	//donation variables
+	bool donationMode = true;
+	char donationAmount[STRING_LENGTH] = { "" };
+	double donation = 0;
+	bool validDonation = false;
+	const int MIN_GOAL = 0;
+	double* outputAmountPtr = NULL;
+	//customer name
+	char customerFirstAndLastName[STRING_LENGTH];
+	//zip variables
+	char zipCode[STRING_LENGTH] = { "" };
+	bool validZip = false;
+	const int ZIP_LENGTH = 5;
+	//exit variables
+	bool exitEmail = false;
+	bool exitPassword = false;
+	char *stringPtr = NULL;
+	//variables for setup
+	Organization* headNodePtr = NULL;
+	char yesOrNo = ' ';
+	//variables for selecting org
+	char stringToFind[STRING_LENGTH] = { "" };
+	char* stringToFindPtr = NULL;
+	Organization* orgPtr = NULL;
+	//to get time
+	time_t rawtime;
+	struct tm* info;
+	char buffer[STRING_LENGTH];
+
+
+	//PART 1 set up mode
+
+	//prompt for new organization to add to linked list
+	do
+	{
+		//Pass address of headNodePtr and number to add org to linked list
+		addOrganization(&headNodePtr);
+
+		//display new org
+		displayOrganization(headNodePtr);
+		
+		//prompt for adding another org
+		printf("%s", "\nDo you want to add another organization? ");
+
+		//call yes or no
+		yesOrNo = validateYesNo();
+
+	} while (yesOrNo == 'y');
+
+
+	//PART 2 Donations mode
+
+	while (donationMode) {
+
+		
+		
+		while (!validDonation) {
+
+			//prompt for user to select an organization to donate to from displayed list
+			//continue to prompt until org was found
+			do {
+				puts("\nSelect the organization you would like to make a donation: ");
+				printList(headNodePtr);
+				puts("\nEnter the name of the organization you want to register: ");
+
+				stringToFindPtr = &stringToFind[0];
+				myFgets(stringToFindPtr, stdin);
+
+				//call function to return a organization or null
+				orgPtr = selectOrganization(&headNodePtr, stringToFindPtr);
+
+			} while (orgPtr == NULL);
+
+			displayFundraiserInfo(orgPtr);
+
+			//get donation amount or allow user to quit
+			puts("\nEnter your donation amount $");
+			stringPtr = donationAmount;
+			myFgets(stringPtr, stdin);
+			
+			//if user enters q begin checking for exit
+			if (stringPtr[0] == 'q' || stringPtr[0] == 'Q') {
+
+				stringPtr = orgPtr->adminEmail;
+				exitEmail = verifyEmail(stringPtr, stdin);
+
+				if (exitEmail == true) {
+
+					stringPtr = orgPtr->adminPassword;
+					exitPassword = verifyPassword(stringPtr, stdin);
+
+					if (exitPassword == true) {
+						//PART 3 summary mode
+						
+						//display summary for organization and add to file
+						displaySummary(orgPtr);
+						orgToFile(headNodePtr, FOLDER);
+
+						validDonation = true;
+						donationMode = false;
+					}
+					else {
+						puts("\nGoing back to donations mode.");
+					}
+				}
+				else {
+					puts("\nGoing back to donations mode.");
+				}
+
+
+
+			}
+			else {
+				//check if donation is a valid input/amount
+				outputAmountPtr = &donation;
+				validDonation = doubleInputValidate(stringPtr, outputAmountPtr, MIN_GOAL);
+					
+				//if the function getValidDonation returns true then valid donation is true
+				//and donation can be converted from string to double otherwise the function
+				//returns false and loop will continue until valid data is entered
+				if (validDonation) {
+					orgPtr->raisedAmount += donation;
+					orgPtr->totalDonors ++;
+
+					//continue donation mode
+					//get customers name
+					puts("\nFirst and last name: ");
+					stringPtr = customerFirstAndLastName;
+					myFgets(stringPtr, stdin);
+
+					//get customer zipcode
+					while (!validZip) {
+						puts("\nEnter your 5 digit zip code: ");
+						stringPtr = zipCode;
+						myFgets(stringPtr, stdin);
+						validZip = getValidZip(stringPtr, ZIP_LENGTH);
+
+						//if the function getValidZip returns true then valid zip is true
+						//and zip can be converted from string to double otherwise the function
+						//returns false and loop will continue until valid data is entered
+						if (validZip) {
+
+							orgPtr->creditProcessed += creditCardPayment(donation);
+							
+							puts("\nDo you want a receipt, (y)es or (n)o?");
+							yesOrNo = validateYesNo();
+
+							if (yesOrNo == 'y') {
+
+								//time information sourced from c library
+								time(&rawtime);
+								info = localtime(&rawtime);
+								strftime(buffer, 80, "%x - %I:%M%p", info);
+
+								//print receipt to consoled and file
+								printf("\nOrganization: %s \nDonation Amount : %.2lf \nDonation Date : %s",
+									orgPtr->organizationName, donation, buffer);
+								receiptFile(orgPtr, FOLDER, STRING_LENGTH, donation);
+
+							}
+								
+						}
+						else {
+							puts("Zip invalid");
+						}
+
+
+					}
+
+					//reset valid donation to false so another customer can go through donate process
+					validDonation = false;
+					validZip = false;
+				}
+				else {
+					puts("Donation invalid");
+				}
+				
+			}
+			
+		}//end getting valid donation
+
+		
+	}
+
+	//after program has run deallocate all memory for orgs
+	deallocateMemory(&headNodePtr);
+
+	return 0;
+}
+
+//parameters: stringPtr and input
+//return: no return
+void myFgets(char* const stringPtr, FILE* stream) {
+	//call fgets to get input
+	fgets(stringPtr, STRING_LENGTH, stream);
+
+	size_t stringLength = strnlen(stringPtr, STRING_LENGTH);
+
+	//check input for newline, if newline is there replace with null and decrease length
+	if (stringLength > 0 && stringPtr[stringLength - 1] == '\n') {
+		stringPtr[stringLength - 1] = '\0';
+		stringLength--;
+	}
+
+}
+
+//parameters: organization structure
+//return: no return
+void displayOrganization(const Organization* const organizationPtr)
+{
+	printf("Thank you %s. The url to raise funds for %s is %s.",
+		organizationPtr->adminName, organizationPtr->organizationName, organizationPtr->organizationURL);
+
+}
+
+//parameters: pointer to structure
+//return: no return
+void setUpOrganization(Organization* const organizationPtr)
+{
+	//initialize values
+	//email variables
+	char yOrN = 'x';
+	bool validEmail = false;
+	//password variables
+	bool validPassword = false;
+	char *StringPtr = NULL;
+	//goal variables
+	const int MIN_GOAL = 0;
+	bool validGoal = false;
+	char goal[STRING_LENGTH] = { "" };
+	double* outputAmountPtr = NULL;
+	char* inputAmountPtr = NULL;
+	//url variables 
+	char URL[STRING_LENGTH] = { "" };
+	const char pre[STRING_LENGTH] = { "https:donate.com/" };
+	const char suf[STRING_LENGTH] = { "?form=popup#" };
+
+	puts("Enter fundraising organization name: ");
+	StringPtr = &organizationPtr->organizationName[0];
+	myFgets(StringPtr, stdin);
+
+	puts("\nEnter fundraiser purpose: ");
+	StringPtr = &organizationPtr->purpose[0];
+	myFgets(StringPtr, stdin);
+
+	puts("\nFirst and last name: ");
+	StringPtr = &organizationPtr->adminName[0];
+	myFgets(StringPtr, stdin);
+
+	//get valid goal amount
+	while (!validGoal) {
+		puts("\nEnter the goal amount you want to raise: ");
+		
+		inputAmountPtr = &goal[0];
+		myFgets(goal, stdin);
+		outputAmountPtr = &organizationPtr->goalAmount;
+
+		//call function to convert string goal to a double
+		validGoal = doubleInputValidate(inputAmountPtr, outputAmountPtr, MIN_GOAL);
+	}
+
+	//get valid email
+	do{
+		puts("\nEnter email address: ");
+		StringPtr = &organizationPtr->adminEmail[0];
+		myFgets(StringPtr, stdin);
+
+		//ask user if this is correct email
+		validEmail = validateEmail(StringPtr);
+		printf("\n%s", organizationPtr->adminEmail);
+		if (validEmail) {
+			puts("\nIs this email correct ? (y)es or (n)o");
+			yOrN = validateYesNo();
+		}
+
+	} while ((!validEmail) || (yOrN == 'n'));
+	
+	while (!validPassword) {
+		puts("\nEnter password: ");
+		StringPtr = &organizationPtr->adminPassword[0];
+		myFgets(StringPtr, stdin);
+
+		validPassword = validatePassword(StringPtr);
+	}
+	
+
+	//call function to create a URL then copy string to org member
+	createUrl(URL, pre, suf, organizationPtr->organizationName);
+	strncpy(organizationPtr->organizationURL, URL, sizeof(URL));
+
+	//initialize remaining values
+	organizationPtr->raisedAmount = 0;
+	organizationPtr->totalDonors = 0; 
+	organizationPtr->creditProcessed = 0;
+
+	//Write organization to file
+	receiptFile(organizationPtr, FOLDER, STRING_LENGTH, organizationPtr->raisedAmount);
+}
+
+//parameters: n/a
+//return y or n for answer
+char validateYesNo() {
+	char validYesNo;
+
+	do {
+		puts("Please enter (y)es or (n)o: ");
+		validYesNo = getchar();
+
+
+		while (getchar() != '\n');
+
+		validYesNo = tolower(validYesNo);
+
+	} while (validYesNo != 'y' && validYesNo != 'n');
+
+	return  validYesNo;
+} //End validateYesNo
+
+//parameters: email string
+//return: bool of whether a email was valid
+bool validateEmail(char* stringPtr) {
+	bool valid = false;
+	int stringLength = strnlen(stringPtr, STRING_LENGTH);
+	char email[STRING_LENGTH] = { "" };
+	int atIndex = -1;//this will hold the index for '@' 
+	int periodIndex = -1;//this will hold the index for '.'
+	int numberOfAts = 0;
+	int numberOfPeriods = 0;
+	int extLength = 0;
+
+	//copy the stringPtr value to email
+	strcpy(email, stringPtr);
+
+	//check that the user name is present
+	//if the first index is a letter or number
+	//then the username is present
+	if (isdigit(email[0]) || isalpha(email[0])) {
+		//check if there is an @ symbol after username
+		for (int i = 0; i < stringLength; i++) {
+			if (email[i] == '@') {
+				atIndex = i;
+				numberOfAts++;
+				
+			}
+		}
+
+		//if there is more than one @ symbol in email give an error
+		if (numberOfAts > 1) {
+			puts("\nMore than one '@' found. Email must contain only 1 '@' symbol.");
+		}
+		//if no index holds an @ symbol give error
+		//if index is greater than -1 @ symbol found
+		else if (atIndex > -1) {
+			//check if  the index following @ symbol contains 
+			//domain which is only letters
+			//move index to after the @ symbol
+			atIndex++;
+			for (size_t i = atIndex; i < stringLength; i++) {
+				if (isdigit(email[i]) && email[i] != '.') {
+					
+					//if a digit is found assign atIndex to -1
+					//this variable will now act as an exit if
+					//a digit is found, to signal an error
+					atIndex = -1;
+				}
+			}
+
+			//if index after @ symbol is a letter then domain
+			// is found check for the period after the domain
+			if (atIndex > -1) {
+				atIndex++;//move indext ot after @
+				for (int i = atIndex; i < stringLength; i++) {
+					if (email[i] == '.') {
+						periodIndex = i;
+						numberOfPeriods++;
+					}
+				}
+			
+				//check to see if there is more than one period after that @
+				if (numberOfPeriods > 1) {
+					puts("\nEmail can have only one period after the domain");
+				}
+				//if the indexOfPeriod is > than -1 the period was found
+				//if the indexOfPeriod is not found give an error
+				else if (periodIndex > -1) {
+					//check for 3 letter extention after the period
+					//move indext to after the period
+					periodIndex++;
+					for (size_t i = periodIndex; i < stringLength; i++) {
+						extLength++;
+
+						//check if the index after the period is all letters
+						if (!isalpha(email[i])) {
+							puts("\nEmail extention must contain only letters.");
+						}
+					}
+					//if following the period there are 3 letters
+					if (extLength == 3) {
+						valid = true;
+					}
+					else {
+						puts("\nEmail must have a 3 letter ext.");
+					}
+
+				}
+				else {
+					puts("\nEmail must contain a period after the domain.");
+				}
+			}
+			else {
+				puts("\nEmail domain must contain only letters.");
+			}
+		}
+		else{
+			puts("\nEmail requires an '@' symbol after username.");
+		}
+		
+	}
+	else {
+		puts("\nEmail username must begin with a letter or number.");
+	}
+
+	return valid;
+}
+
+//parameters: pointer to string
+//return: returns a bool
+bool validatePassword(char* stringPtr) {
+	size_t stringLength = strnlen(stringPtr, STRING_LENGTH);
+	char password[STRING_LENGTH] = { "" };
+	bool valid = false;
+	bool upperFound = false;
+	bool lowerFound = false;
+	bool digitFound = false;
+
+	//copy stringPtr value to password
+	strcpy(password, stringPtr);
+	
+	//first check that length is greater than or equal to 7
+	if (stringLength >= 7) {
+
+		//then search for an uppercase
+		for (size_t i = 0; i < stringLength; i++) {
+			if (isupper(password[i])) {
+				upperFound = true;
+			}
+			if (islower(password[i])) {
+				lowerFound = true;
+			}
+			if (isdigit(password[i])) {
+				digitFound = true;
+			}
+		}
+
+		if (upperFound && lowerFound && digitFound) {
+			valid = true;
+		}
+		else {
+			puts("\nPassword must contain one digit, one uppercase and lowercase letter.");
+		}
+
+	}
+	else {
+		puts("\nPassword be 7 characters or more.");
+	}
+	return valid;
+}
+
+//parameters: pointer to the org struct
+//return: no returns
+void createUrl(char* url, const char* prefix, const char* suffix, const char* orgName) {
+	char organization[STRING_LENGTH] = { "" };
+
+	//copy prefix to the empty string url
+	strcpy(url, prefix);
+
+	//copy org name to organization so that 
+	//strtok can make changes to a string without
+	//changing the orgName variable
+	strcpy(organization, orgName);
+
+	//seacrch orgName for a space
+	char* tokenPtr = strtok(organization, " ");
+	//use this character to fill in spaces
+	char characterReplace[] = { "-" };
+
+	//while the tokenPtr is not pointing to null
+	while (tokenPtr != NULL) {
+		//add url with tokenPtr 
+		strcat(url, tokenPtr);
+		//add url with characterReplace 
+		strcat(url, characterReplace);
+		//search for space starting from null
+		tokenPtr = strtok(NULL, " ");
+	}
+
+	//add the urlEnd to the rest of the url string
+	strcat(url, suffix);
+
+}
+
+//parameters: pointer to an organization that won't be modified 
+//return: no return
+void displayFundraiserInfo(const Organization* const organizationPtr) {
+	printf("\n%s\nMAKE A DIFFERENCE BY YOUR DONATION\nOrganization: %s\nPurpose: %s",
+		organizationPtr->organizationURL, organizationPtr->organizationName, organizationPtr->purpose);
+
+	printf("\nWe currently have raised %.2lf\n",organizationPtr->raisedAmount);
+
+		//if the amount raised is greater or equal to goal amount display the if statement
+		//otherwise disple the else statement because goal has not been met or exceeded
+		if(organizationPtr->raisedAmount >= organizationPtr->goalAmount) {
+			puts("We have reached our goal but can still use the donations.");
+		}
+		else {
+			double percentToGoal = organizationPtr->raisedAmount / organizationPtr->goalAmount;
+			printf("We are %.2lf towards our goal of %.2lf", percentToGoal, organizationPtr->goalAmount);
+		}
+}
+
+//parameters: pointer to a constant string
+//return: no returns
+bool doubleInputValidate(const char* stringInputPtr, double* outputPtr, int min)
+{
+
+	//declare pointer to a char that will be passed to strotod
+	char* end;
+	//The errno is set to zero at program startup and set to ERANGE if out of range when  strtod
+	//tries to convert to double
+	errno = 0;
+	bool validDouble = false;
+
+	//the strtod function is supposed to return a double value to the variable doubleTest
+	//the parameters in strtod include the string of characters passed from main
+	//then the &end is passing the address of the pointer to a char
+	double doubleTest = strtod(stringInputPtr, &end);
+	//if the pointer end is equal to the string buff then the value entered was not
+	//a decimal number, so if a character was entered this would give the below error
+	if (end == stringInputPtr) {
+		fprintf(stderr, "%s: not a decimal number\n", stringInputPtr);
+	}
+	//if end does not point to '\0' then there is an extra character at the end of input
+	//if a number was entered then end would point to null
+	else if ('\0' != *end) {
+		fprintf(stderr, "%s: extra characters at end of input: %s\n", stringInputPtr, end);
+	}
+	//if the variable doubleTest holds a value equal to the double min or double max and 
+	//the ERANGE is equal to an errno then this string can not be changed to a double
+	//because it is out of range for the type double
+	else if ((((double)DBL_MIN) == doubleTest || ((double)DBL_MAX) == doubleTest) && ERANGE == errno) {
+		fprintf(stderr, "%s out of range of type long\n", stringInputPtr);
+	}
+	//check if the donation amount is greater than the min
+	else if (doubleTest <= min) {
+		puts("donation amount must be greater than 0");
+	}
+	//at this point the string passed the range for a double and now validDouble will be assigned to
+	// true and the outputPtr will now hold the double value
+	else {
+		validDouble = true;
+		*outputPtr = doubleTest;
+
+	}
+	return validDouble;
+
+}
+
+//parameters: pointer to a constant string and the max length for zip
+//return: no returns
+bool getValidZip(const char* const zipStringPtr, const int length)
+{
+	//declare pointer to a char that will be passed to strotod
+	char* end;
+	//The errno is set to zero at program startup and set to ERANGE if out of range when strtod
+	//tries to convert to double
+	errno = 0;
+	bool validDouble = false;
+
+	//length of zip
+	int zipLength = strnlen(zipStringPtr, STRING_LENGTH);
+
+	//the strtod will be used here to initialize end
+	double doubleTest = strtod(zipStringPtr, &end);
+	//if the pointer end is equal to the string buff then the value entered was not
+	//a decimal number, so if a character was entered this would give the below error
+	if (end == zipStringPtr) {
+		fprintf(stderr, "%s: not a decimal number\n", zipStringPtr);
+	}
+	//if end does not point to '\0' then there is an extra character at the end of input
+	//if a number was entered then end would point to null
+	else if ('\0' != *end) {
+		fprintf(stderr, "%s: extra characters at end of input: %s\n", zipStringPtr, end);
+	}
+	//check if the zip code starts with 0
+	else if (zipStringPtr[0] == '0') {
+		puts("zip code cannot begin with 0.");
+	}
+	//check if the zip code is correct length
+	else if (zipLength != length) {
+		puts("zip code length must be 5 digits long.");
+	}
+	//at this point the string passed the range for a long and now validDouble will return true
+	else {
+
+		validDouble = true;
+
+	}
+	return validDouble;
+
+}
+
+//parameters: pointer to string and input
+//return: returns a bool
+bool verifyEmail(const char* const emailStringPtr, FILE* stream) {
+	int count = 0;
+	char guess[STRING_LENGTH] = { "" };
+	int maxAttempts = 3;
+
+	//ask for email until the correct one is entered or the amount of
+	//attempts have been met
+	bool email = false;
+	do {
+		puts("Enter your email: ");
+		myFgets(guess, stdin);
+
+		count++;
+
+		if (strcmp(emailStringPtr, guess) == 0 ) {
+			email = true;
+		}
+
+
+	} while (email != true && count < maxAttempts);
+
+	return email;
+
+}
+
+//parameters: pointer to string and input
+//return: returns a bool
+bool verifyPassword(const char* const passStringPtr, FILE* stream) {
+	int count = 0;
+	char guess[STRING_LENGTH] = { "" };
+	int maxAttempts = 3;
+
+	//ask for password until the correct one is entered or the amount 
+	//of attempts have been met
+	bool password = false;
+	do {
+		puts("Enter password: ");
+		myFgets(guess, stdin);
+
+		count++;
+
+		if (strcmp(passStringPtr, guess) == 0) {
+			password = true;
+		}
+
+
+	} while (password != true && count < maxAttempts);
+
+	return password;
+
+}
+
+//parameters: pointer to organization
+//return: no return
+void displaySummary(const Organization* const organizationPtr) {
+	printf("\nOrganization name: %s\nTotal number of donations: %d\nTotal amount raised: %.2lf\nTotal amount paid for credit card processing: %.2lf",
+		organizationPtr->organizationName, organizationPtr->totalDonors, organizationPtr->raisedAmount, organizationPtr->creditProcessed);
+
+}
+
+// Parameters: pointer to a pointer (modify headNodePtr's address)
+//return: none
+void addOrganization(Organization** headPtr)
+{
+	// Allocates memory on the heap for newNodePtr
+	Organization* newOrgPtr = malloc(sizeof(Organization));
+
+	// if newNodePtr is not null then fill newNode
+	if (newOrgPtr != NULL)
+	{
+		//newNodePtr is accessing data and assigning it to number
+		//newOrgPtr->age = number;
+		//strcpy(newOrgPtr->name, petName);
+		setUpOrganization(newOrgPtr);
+
+		//newNodePtr is accessing nextNodePtr and assigning it to NULL
+		newOrgPtr->nextNodePtr = NULL;
+
+		// Initializing previousPtr to point to node structure
+		//and assigning it to NULL
+		Organization* previousPtr = NULL;
+		// Initializing currentPtr to point to node structure
+		//and assigning it to the address held by headPtr
+		Organization* currentPtr = *headPtr;
+
+		//while currentPtr isn't NULL and currentPtr's data is 
+		//less than or equal to number 
+		while (currentPtr != NULL && (stringCompare(currentPtr->organizationName, newOrgPtr->organizationName) < 0))
+		{
+			//previousPtr is being assigned to the address of
+			//currentPointer which holds the address of headPtr
+			//this moves the address that was the head back
+			previousPtr = currentPtr;
+			//currentPtr is now being assigned to the address
+			//of the nextNodePtr
+			currentPtr = currentPtr->nextNodePtr;
+		}
+
+		// if the previousPtr is NULL
+		if (previousPtr == NULL)
+		{
+			//then headPtr will be assigned to the address
+			//of newNodePtr
+			*headPtr = newOrgPtr;
+		}
+		// otherwise the previousPtr holds an address
+		else
+		{
+			//previousPtr accesses the address that nextNodePtr
+			//is holding and the nextNodePtr will now be assigned
+			//to the newNodePtr, this moves the nextNodePtr forward
+			previousPtr->nextNodePtr = newOrgPtr;
+		}
+
+		//newNodePtr will access the address nextNodePtr holds
+		//and assign nextNodePtr to hold the address of currentPtr
+		newOrgPtr->nextNodePtr = currentPtr;
+	}
+	//memory was not allocated for new node
+	else
+	{
+		printf("No memory to create node for %s\n", newOrgPtr->organizationName);
+	}
+} // end insertNode
+
+//parameter: a pointer to the structure of organizations
+//return: none
+void printList(Organization* listPtr)
+{
+	// if the listPtr is not null
+	if (listPtr != NULL)
+	{
+		puts("Organization\tGoal Amount\tCurrent Donations");
+
+		//current org is equal to listPtr
+		Organization* currentPtr = listPtr;
+
+		//while current node is not null
+		while (currentPtr != NULL)
+		{
+			// display and go to next node
+			printf("\n%s\t%.2lf", currentPtr->organizationName, currentPtr->goalAmount);
+			currentPtr = currentPtr->nextNodePtr;
+		}
+	}
+	// the listPtr is null then there is nothing in the list
+	else
+	{
+		puts("List is empty");
+	}
+} // end printList
+
+//parameters: two strings and the current pointer
+//return: an int based on string compare ignoring case
+int stringCompare(char* str1Ptr, char* strPtr2) {
+	char str1[STRING_LENGTH] = { "" };
+	char str2[STRING_LENGTH] = { "" };
+	int priority = 0;
+	int stringLength1 = strnlen(str1Ptr, STRING_LENGTH);
+	int stringLength2 = strnlen(strPtr2, STRING_LENGTH);
+
+	//copy incoming string to string in function while
+	//also updating the incoming string to all lowercase
+	for (size_t i = 0; i < stringLength1; i++) {
+		str1[i] = (tolower(str1Ptr[i]));
+	}
+	for (size_t i = 0; i < stringLength2; i++) {
+		str2[i] = (tolower(strPtr2[i]));
+	}
+
+	//check if str1 is > 0, <0, or =0
+	priority = strcmp(str1, str2);
+
+	return priority;
+
+}
+
+// parameters: pointer to a pointer head and integer
+//returns a pointer to an org
+Organization* selectOrganization(Organization** headPtr, char* stringInputPtr)
+{
+	// initialize previousPtr to null and currentPtr to the address
+	//headPtr is holding
+	Organization* previousPtr = NULL;
+	Organization* currentPtr = *headPtr;
+
+	Organization* orgBeingReturnedPtr = NULL;
+
+
+	// check if head is equal to null
+	if (*headPtr != NULL)
+	{
+
+		//check if node to delete is not the first node
+		if (stringCompare((*headPtr)->organizationName, stringInputPtr) == 0)
+		{	
+			//if first node is the organization assign
+			//return ptr to current
+			orgBeingReturnedPtr = currentPtr;
+
+		}
+		else 
+		{
+			//while current node isnt equal to null and currentPtr accessing
+			//data isn't equal to the node move forward in the list
+			while (currentPtr != NULL && (stringCompare(currentPtr->organizationName , stringInputPtr) != 0))
+			{
+				// previousPtr will now hold the address for currentPtr
+				//currentPtr will hold the address for the nextNode
+				previousPtr = currentPtr;
+				currentPtr = currentPtr->nextNodePtr;
+			}
+
+			//check current pointer isn't equal to null
+			if (currentPtr != NULL)
+			{
+				
+				//if currennt isn't null then at it's current
+				//posistion in the list is now holding the
+				//org being searched for
+				orgBeingReturnedPtr = currentPtr;
+				
+			}
+			//current node is null
+			else
+			{
+				//if the organization is not found assign string to null
+				puts("\nOrganization not found.");
+				stringInputPtr = NULL;
+			}
+		}
+	}
+	else //list is empty
+	{
+		puts("There aren't any Organizations in the list!");
+	}
+
+	return orgBeingReturnedPtr;
+
+} //selectNode end
+
+//parameters: string and int
+//return: none
+void receiptFile(const Organization* const organizationPtr, const char FOLDER_PATH[], const int LENGTH, const double DONATION)
+{
+	//create a file name for org and add to the folder
+	char folder[STRING_LENGTH] = { "" };
+	char fileName[STRING_LENGTH] = { "" };
+	const char SUFFIX[] = { "receipts.txt" };
+	int fileNameIndex = 0;
+	strcpy(folder, FOLDER_PATH);
+	//time
+	time_t rawtime;
+	struct tm* info;
+	char buffer[STRING_LENGTH];
+	
+	//Check the url string for a forward slash that indicates
+	//the start of the org name which is what we want stored as
+	//the file name
+	for(size_t i = 0; i < LENGTH ; i++){
+		if (organizationPtr->organizationURL[i] == '/') {
+			//after the forward slash is found copy the character
+			//starting after the forward slash to the fileName index
+			//until we reach the question mark in the org string
+			i++;
+			while (organizationPtr->organizationURL[i] != '?') {
+				fileName[fileNameIndex] = organizationPtr->organizationURL[i];
+				i++;
+				fileNameIndex++;
+			}
+		}
+	}
+	//add the suffix to the end of the file name
+	strcat(fileName, SUFFIX);
+	//add the folder path with the file name
+	strcat(folder, fileName);
+
+	FILE* orgfPtr; //file pointer 
+
+	// fopen opens file. Exit program if unable to create file 
+	if ((orgfPtr = fopen(folder, "a")) == NULL) {
+		puts("File could not be opened");
+	}
+	else {
+
+		//check if the organization has information to write to file
+		if (DONATION != 0) {
+			//time information sourced from c library
+			time(&rawtime);
+			info = localtime(&rawtime);
+			strftime(buffer, 80, "%x - %I:%M%p", info);
+			
+			//print to file
+			fprintf(orgfPtr, "\nOrganization: %s \nDonation Amount: %.2lf \nDonation Date: %s",
+				organizationPtr->organizationName, DONATION, buffer);
+		}
+		
+
+		fclose(orgfPtr); // fclose closes file   
+	}
+}
+
+//parameters: a pointer to the first org, folder name
+//return: none
+void orgToFile(Organization* listPtr, const char FOLDER_PATH[]) {
+	
+	char folder[STRING_LENGTH] = { "" };
+	char fileName[STRING_LENGTH] = { "orgs.txt" };
+	
+	FILE* orgfPtr; //file pointer 
+	//current org is equal to listPtr
+	Organization* currentPtr = listPtr;
+
+	strcpy(folder, FOLDER_PATH);
+	strcat(folder, fileName);
+
+	// fopen opens file. Exit program if unable to create file 
+	if ((orgfPtr = fopen(folder, "a")) == NULL) {
+		puts("File could not be opened");
+	}
+	else {
+
+		if (listPtr != NULL) {
+			//print to file while current pointer points
+			//to an organization
+			while (currentPtr != NULL) {
+				fprintf(orgfPtr, "\nOrganization name: %s\nTotal number of donations: %d\nTotal amount raised: %.2lf\nTotal amount paid for credit card processing: %.2lf",
+					currentPtr->organizationName, currentPtr->totalDonors, currentPtr->raisedAmount, currentPtr->creditProcessed);
+				currentPtr = currentPtr->nextNodePtr;
+			}
+		}
+		fclose(orgfPtr); // fclose closes file   
+	}	
+}//end orgToFile
+
+//parameters: string and int
+//return: none
+double creditCardPayment(const double DONATION) {
+	double totalCreditCardProcessing = 0;
+	double creditFee = .031;
+	
+	double chargedAmount = DONATION * creditFee;
+	double donationAfterCharge = DONATION - chargedAmount;
+
+	printf("\nThank you for your donation. There is a %.2lf credit card processing fee of %.2lf. %.2lf will be donated."
+		, creditFee, chargedAmount, donationAfterCharge);
+
+	totalCreditCardProcessing += chargedAmount;
+
+	return totalCreditCardProcessing;
+}
+
+// parameter: a double pointer to the pet structure
+//return: none
+void deallocateMemory(Organization** headPtr)
+{
+	Organization* currentPtr = *headPtr;
+	Organization* nextNodePtr = NULL;
+
+	while (currentPtr != NULL)
+	{
+		nextNodePtr = currentPtr->nextNodePtr;
+		free(currentPtr);
+		currentPtr = nextNodePtr;
+	}
+
+	*headPtr = NULL;
+}

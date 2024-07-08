@@ -1,14 +1,13 @@
 /*
 * Hailey Martin
-* CS2060
 * Project Iteration 2
 * Description: This program will dynamically allocate memory on the heap to store various organizations
-* inside a single linked list. In this program there are three sections set up, donation, and summary.
-* Setup will prompt user to add organization which will create nodes in a linked list and each node
-* will hac data memebers for that specific organization. In donation the user can selec which organization
-* they want to donate to and then collect donation from user. At this point the user could enter q to
+* inside a single linked list. In this program, there are three sections set up, donation, and summary.
+* Setup will prompt the user to add an organization which will create nodes in a linked list and each node
+* will have data members for that specific organization. In donation, the user can select which organization
+* they want to donate to and then collect donations from the user. At this point, the user could enter q to
 * quit the donation mode instead of a dollar amount. If q is entered the user is sent to summary mode
-* where they will get summary for the organizations. This program will also write to file for receipts
+* where they will get a summary for the organizations. This program will also write to file for receipts
 * and summary for organizations.
 */
 
